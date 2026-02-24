@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STR OPS · Istanbul Atatürk Station</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap');
+  :root {
+    --bg:#0a0c0f;--surface:#111418;--surface2:#181c22;--border:#232830;
+    --accent:#e8a020;--accent2:#3b82f6;--red:#ef4444;--green:#22c55e;
+    --yellow:#f59e0b;--text:#e2e8f0;--muted:#64748b;
+    --mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;--display:'Bebas Neue',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");pointer-events:none;z-index:0;}
+  .app{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:32px 24px;}
+
+  /* NAV TABS */
+  .nav-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:32px;}
+  .nav-tab{font-family:var(--mono);font-size:11px;letter-spacing:2px;text-transform:uppercase;
+    padding:10px 20px;background:transparent;border:none;color:var(--muted);cursor:pointer;
+    border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;}
+  .nav-tab:hover{color:var(--text);}
+  .nav-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+  /* PAGE */
+  .page{display:none;} .page.active{display:block;}
+
+  /* HEADER */
+  header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:32px;padding-bottom:24px;border-bottom:1px solid var(--border);}
+  .logo-block h1{font-family:var(--display);font-size:52px;letter-spacing:3px;line-height:1;color:var(--text);}
+  .logo-block h1 span{color:var(--accent);}
+  .logo-block p{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:6px;}
+  .station-badge{font-family:var(--mono);font-size:11px;color:var(--accent);letter-spacing:2px;text-transform:uppercase;padding:6px 14px;border:1px solid var(--accent);border-radius:2px;opacity:.8;}
+
+  /* API SECTION — hidden, managed via settings modal */
+  .api-section{display:none;}
+  .api-status{font-family:var(--mono);font-size:10px;margin-top:8px;letter-spacing:1px;}
+  .api-status.ok{color:var(--green);} .api-status.warn{color:var(--muted);}
+
+  /* SETTINGS MODAL */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+  .modal-overlay.open{display:flex;}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:28px;width:min(480px,90vw);box-shadow:0 24px 60px rgba(0,0,0,.6);}
+  .modal h3{font-family:var(--display);font-size:22px;letter-spacing:2px;color:var(--text);margin-bottom:6px;}
+  .modal p{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:1px;margin-bottom:20px;line-height:1.6;}
+  .modal label{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;display:block;margin-bottom:8px;}
+  .modal-row{display:flex;gap:10px;margin-bottom:12px;}
+  .modal-input{flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:13px;padding:10px 14px;border-radius:3px;outline:none;transition:border-color .2s;}
+  .modal-input:focus{border-color:var(--accent2);}
+  .modal-status{font-family:var(--mono);font-size:11px;letter-spacing:1px;margin-bottom:20px;}
+  .modal-status.ok{color:var(--green);} .modal-status.warn{color:#f59e0b;}
+  .modal-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border);}
+
+  /* SETTINGS ICON in header */
+  .btn-settings{background:transparent;border:1px solid var(--border);color:var(--muted);font-size:14px;width:34px;height:34px;border-radius:3px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;}
+  .btn-settings:hover{border-color:var(--accent);color:var(--accent);}
+  .btn-settings.key-set{border-color:#22c55e44;color:var(--green);}
+
+  /* UPLOAD — two options */
+  .upload-options{display:flex;gap:12px;margin-bottom:24px;}
+  .upload-opt{flex:1;border:2px dashed var(--border);border-radius:4px;padding:32px 20px;text-align:center;cursor:pointer;transition:all .25s;background:var(--surface);position:relative;}
+  .upload-opt:hover,.upload-opt.drag{border-color:var(--accent);background:#1a1508;}
+  .upload-opt input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+  .upload-opt-icon{font-size:28px;margin-bottom:10px;display:block;opacity:.6;}
+  .upload-opt h3{font-family:var(--display);font-size:16px;letter-spacing:2px;color:var(--text);margin-bottom:4px;}
+  .upload-opt p{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;}
+
+  /* PREVIEW */
+  #preview-wrap{display:none;margin-bottom:24px;background:var(--surface);border:1px solid var(--border);border-radius:4px;overflow:hidden;}
+  #preview-wrap img{width:100%;max-height:360px;object-fit:contain;display:block;background:#000;}
+  .preview-bar{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-top:1px solid var(--border);}
+  .preview-bar span{font-family:var(--mono);font-size:12px;color:var(--muted);}
+
+  /* BUTTONS */
+  .btn-analyze{width:100%;padding:18px;background:var(--accent);color:#000;border:none;font-family:var(--display);font-size:22px;letter-spacing:3px;cursor:pointer;border-radius:3px;transition:all .2s;margin-bottom:32px;}
+  .btn-analyze:hover{background:#f5b340;transform:translateY(-1px);}
+  .btn-analyze:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+  .btn-sm{padding:8px 16px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:11px;letter-spacing:1px;cursor:pointer;border-radius:2px;transition:all .2s;}
+  .btn-sm:hover{border-color:var(--accent);color:var(--accent);}
+
+  /* LOADING */
+  #loading{display:none;text-align:center;padding:48px;}
+  .spinner{width:40px;height:40px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 20px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  #loading p{font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;}
+  .loading-steps{margin-top:16px;}
+  .loading-step{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;opacity:.4;transition:opacity .3s;}
+  .loading-step.active{opacity:1;color:var(--accent);}
+  .loading-step.done{opacity:.6;color:var(--green);}
+
+  /* ERROR */
+  .error-box{background:#1a0808;border:1px solid #3f1212;border-radius:4px;padding:20px;font-family:var(--mono);font-size:13px;color:#fca5a5;display:none;margin-bottom:24px;}
+
+  /* RESULTS */
+  #results{display:none;}
+  .result-header{display:flex;align-items:center;gap:16px;margin-bottom:24px;}
+  .result-header h2{font-family:var(--display);font-size:28px;letter-spacing:2px;color:var(--text);}
+  .timestamp{font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:auto;}
+  .btn-whatsapp{font-family:var(--mono);font-size:11px;letter-spacing:1px;padding:8px 16px;background:#1a5c1a;border:1px solid #22c55e44;color:var(--green);border-radius:2px;cursor:pointer;transition:all .2s;}
+  .btn-whatsapp:hover{background:#22c55e;color:#000;}
+
+  /* BRIEF BOX */
+  .brief-box{background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:24px;margin-bottom:24px;}
+  .brief-box h3{font-family:var(--display);font-size:18px;letter-spacing:2px;color:var(--muted);margin-bottom:16px;}
+  .brief-box p{font-family:var(--sans);font-size:14px;line-height:1.8;color:var(--text);}
+
+  /* FLIGHT CARD */
+  .flights-grid{display:flex;flex-direction:column;gap:16px;margin-bottom:32px;}
+  .flight-card{background:var(--surface);border:1px solid var(--border);border-radius:4px;overflow:hidden;animation:fadeUp .4s ease both;}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+  .flight-card-header{display:flex;align-items:center;gap:20px;padding:16px 20px;background:var(--surface2);border-bottom:1px solid var(--border);}
+  .reg{font-family:var(--display);font-size:26px;letter-spacing:2px;color:var(--accent);}
+  .flight-meta{display:flex;gap:8px;flex-wrap:wrap;flex:1;}
+  .meta-pill{font-family:var(--mono);font-size:11px;padding:3px 10px;border-radius:2px;letter-spacing:1px;text-transform:uppercase;}
+  .pill-route{background:#1e2a3a;color:var(--accent2);}
+  .pill-time{background:#1a1f18;color:#86efac;}
+  .pill-ac{background:#1f1a14;color:#fbbf24;}
+  .flight-card-body{padding:20px;}
+
+  /* INFO GRID */
+  .info-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:16px;margin-bottom:20px;}
+  .info-item label{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;display:block;margin-bottom:4px;}
+  .info-item .val{font-family:var(--mono);font-size:14px;color:var(--text);}
+
+  /* BRIEF */
+  .flight-brief{background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:14px 16px;margin-bottom:16px;font-size:13px;line-height:1.7;color:#cbd5e1;}
+
+  /* RISKS */
+  .risks{display:flex;flex-direction:column;gap:10px;margin-bottom:16px;}
+  .risk-item{display:flex;align-items:flex-start;gap:12px;padding:12px 16px;border-radius:3px;border-left:3px solid transparent;}
+  .risk-red{background:#1a0808;border-left-color:var(--red);}
+  .risk-yellow{background:#1a1408;border-left-color:var(--yellow);}
+  .risk-green{background:#081a0e;border-left-color:var(--green);}
+  .risk-blue{background:#08121a;border-left-color:var(--accent2);}
+  .risk-icon{font-size:16px;flex-shrink:0;margin-top:1px;}
+  .risk-text{font-family:var(--sans);font-size:13px;line-height:1.5;color:var(--text);}
+  .risk-text strong{font-weight:600;display:block;margin-bottom:2px;font-size:11px;letter-spacing:1px;text-transform:uppercase;}
+  .risk-red .risk-text strong{color:var(--red);}
+  .risk-yellow .risk-text strong{color:var(--yellow);}
+  .risk-green .risk-text strong{color:var(--green);}
+  .risk-blue .risk-text strong{color:var(--accent2);}
+
+  /* ACTIONS — checkable */
+  .actions-section{background:#0e1a0e;border:1px solid #1a3a1a;border-radius:3px;padding:16px;}
+  .actions-section h4{font-family:var(--mono);font-size:10px;color:#4ade80;letter-spacing:3px;text-transform:uppercase;margin-bottom:12px;}
+  .action-list{display:flex;flex-direction:column;gap:6px;}
+  .action-item{display:flex;align-items:flex-start;gap:10px;font-family:var(--sans);font-size:13px;color:#dcfce7;line-height:1.5;cursor:pointer;padding:4px 6px;border-radius:3px;transition:background .1s;}
+  .action-item:hover{background:#1a2e1a;}
+  .action-item.done{opacity:.4;}
+  .action-item.done .action-text{text-decoration:line-through;}
+  .action-check{width:18px;height:18px;border:1.5px solid #4ade8066;border-radius:3px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;transition:all .15s;font-size:10px;background:transparent;}
+  .action-item.done .action-check{background:#22c55e;border-color:#22c55e;color:#000;}
+
+  /* RAW */
+  .raw-section{margin-top:24px;}
+  .raw-toggle{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:1px;cursor:pointer;background:none;border:none;padding:0;text-decoration:underline;}
+  .raw-box{display:none;background:var(--surface);border:1px solid var(--border);border-radius:3px;padding:20px;font-family:var(--mono);font-size:12px;color:var(--muted);white-space:pre-wrap;line-height:1.7;margin-top:12px;}
+
+  /* HISTORY PAGE */
+  .history-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+  .history-toolbar h2{font-family:var(--display);font-size:28px;letter-spacing:2px;color:var(--text);}
+  .history-empty{font-family:var(--mono);font-size:13px;color:var(--muted);text-align:center;padding:60px 20px;letter-spacing:1px;}
+  .history-list{display:flex;flex-direction:column;gap:12px;}
+  .history-card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:16px 20px;cursor:pointer;transition:border-color .2s;}
+  .history-card:hover{border-color:var(--accent);}
+  .history-card.has-red{border-left:3px solid var(--red);}
+  .history-card-top{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+  .history-reg{font-family:var(--display);font-size:20px;letter-spacing:2px;color:var(--accent);}
+  .history-meta{font-family:var(--mono);font-size:11px;color:var(--muted);flex:1;}
+  .history-time{font-family:var(--mono);font-size:10px;color:var(--muted);}
+  .history-brief{font-size:13px;color:var(--text);line-height:1.5;opacity:.8;}
+  .history-badges{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+  .h-badge{font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:2px;letter-spacing:1px;}
+  .h-badge-red{background:var(--red);color:#fff;} .h-badge-green{background:#14532d;color:var(--green);}
+  .h-badge-open{background:#1e2a3a;color:var(--accent2);}
+  .delete-btn{font-family:var(--mono);font-size:10px;padding:4px 10px;background:transparent;border:1px solid #3f1212;color:var(--red);border-radius:2px;cursor:pointer;transition:all .2s;flex-shrink:0;}
+  .delete-btn:hover{background:var(--red);color:#fff;}
+
+  footer{font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;letter-spacing:2px;padding-top:32px;border-top:1px solid var(--border);opacity:.5;margin-top:32px;}
+
+  /* TOAST */
+  .toast{position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:11px;padding:10px 18px;border-radius:3px;z-index:999;letter-spacing:1px;animation:fadeUp .3s ease,fadeOut .3s ease 1.9s forwards;box-shadow:0 4px 20px rgba(0,0,0,.4);}
+  @keyframes fadeOut{to{opacity:0;transform:translateY(4px);}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="logo-block">
+      <h1>STR<span>·</span>OPS</h1>
+      <p>Station Traffic Report · Intelligence Layer</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button class="btn-settings" id="settingsBtn" onclick="openSettings()" title="API Ayarları">⚙</button>
+      <div class="station-badge">ISL · UTC+3</div>
+    </div>
+  </header>
+
+  <!-- TABS -->
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showTab('analyze')">ANALİZ</button>
+    <button class="nav-tab" onclick="showTab('history')">GEÇMİŞ STR'LAR</button>
+  </div>
+
+  <!-- ═══ ANALYZE PAGE ═══ -->
+  <div class="page active" id="tab-analyze">
+
+    <!-- API Key (hidden, background) -->
+    <div class="api-section">
+      <label>Anthropic API Key</label>
+      <div class="api-row">
+        <input type="password" class="api-input" id="apiKey" placeholder="sk-ant-api03-…" oninput="onKeyInput()" />
+        <button class="btn-sm" onclick="saveKey()">Kaydet</button>
+      </div>
+      <div class="api-status warn" id="apiStatus">Key kaydedilmedi</div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsModal" onclick="closeSettingsOutside(event)">
+      <div class="modal">
+        <h3>API AYARLARI</h3>
+        <p>API key bir kez girilir ve tarayıcıda kalıcı olarak saklanır.<br>Bir daha girmen gerekmez.</p>
+        <label>Anthropic API Key</label>
+        <div class="modal-row">
+          <input type="password" class="modal-input" id="modalApiKey" placeholder="sk-ant-api03-…" />
+          <button class="btn-sm" onclick="saveKeyFromModal()">Kaydet</button>
+        </div>
+        <div class="modal-status warn" id="modalStatus">Key girilmedi</div>
+        <div class="modal-footer">
+          <button class="btn-sm" onclick="closeSettings()">Kapat</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Upload — dual options -->
+    <div class="upload-options" id="uploadOptions">
+      <div class="upload-opt" id="dropZone">
+        <input type="file" id="fileInput" accept="image/*" />
+        <span class="upload-opt-icon">🖼</span>
+        <h3>GALERİDEN SEÇ</h3>
+        <p>Telefon veya bilgisayardan</p>
+      </div>
+      <div class="upload-opt" id="cameraZone">
+        <input type="file" id="cameraInput" accept="image/*" capture="environment" />
+        <span class="upload-opt-icon">📷</span>
+        <h3>KAMERAYLA ÇEK</h3>
+        <p>Doğrudan STR fotoğrafla</p>
+      </div>
+    </div>
+
+    <div id="preview-wrap">
+      <img id="previewImg" src="" alt="STR Preview" />
+      <div class="preview-bar">
+        <span id="fileName">-</span>
+        <button class="btn-sm" onclick="clearFile()">× Temizle</button>
+      </div>
+    </div>
+
+    <button class="btn-analyze" id="analyzeBtn" onclick="analyze()" disabled>ANALİZ ET</button>
+
+    <div id="loading">
+      <div class="spinner"></div>
+      <p>İşleniyor…</p>
+      <div class="loading-steps">
+        <div class="loading-step" id="step1">▸ Görsel sıkıştırılıyor</div>
+        <div class="loading-step" id="step2">▸ STR okunuyor</div>
+        <div class="loading-step" id="step3">▸ Operasyonel kurallar uygulanıyor</div>
+        <div class="loading-step" id="step4">▸ Brief hazırlanıyor</div>
+      </div>
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+    <div id="results"></div>
+
+    <footer>STR OPS · Istanbul Atatürk Station · Tüm saatler yerel (UTC+3) olarak gösterilir</footer>
+  </div>
+
+  <!-- ═══ HISTORY PAGE ═══ -->
+  <div class="page" id="tab-history">
+    <div class="history-toolbar">
+      <h2>GEÇMİŞ ANALİZLER</h2>
+      <button class="btn-sm" onclick="clearHistory()">Tümünü Temizle</button>
+    </div>
+    <div id="historyContainer"></div>
+    <footer>STR OPS · Istanbul Atatürk Station</footer>
+  </div>
+
+</div>
+
+<script>
+// ═══ STATE ═══════════════════════════════════════════════════════════════════
+let imageBase64 = null;
+let imageMime   = 'image/jpeg';
+const HISTORY_KEY = 'str_ops_history';
+const KEY_KEY     = 'str_api_key';
+
+// ═══ BOOT ════════════════════════════════════════════════════════════════════
+window.onload = () => {
+  const k = localStorage.getItem(KEY_KEY);
+  if (k) {
+    document.getElementById('apiKey').value = k;
+    document.getElementById('modalApiKey').value = k;
+    setApiStatus(true);
+    document.getElementById('settingsBtn').classList.add('key-set');
+  } else {
+    // No key yet — open settings automatically
+    openSettings();
+  }
+};
+
+// ═══ SETTINGS MODAL ══════════════════════════════════════════════════════════
+function openSettings() {
+  const k = localStorage.getItem(KEY_KEY);
+  const inp = document.getElementById('modalApiKey');
+  if (k) { inp.value = k; setModalStatus(true); }
+  document.getElementById('settingsModal').classList.add('open');
+  setTimeout(() => inp.focus(), 100);
+}
+
+function closeSettings() {
+  document.getElementById('settingsModal').classList.remove('open');
+}
+
+function closeSettingsOutside(e) {
+  if (e.target === document.getElementById('settingsModal')) closeSettings();
+}
+
+function saveKeyFromModal() {
+  const k = document.getElementById('modalApiKey').value.trim();
+  if (!k) { setModalStatus(false); return; }
+  localStorage.setItem(KEY_KEY, k);
+  document.getElementById('apiKey').value = k;
+  setApiStatus(true);
+  setModalStatus(true);
+  document.getElementById('settingsBtn').classList.add('key-set');
+  setTimeout(closeSettings, 800);
+  toast('API key kaydedildi ✓');
+}
+
+function setModalStatus(saved) {
+  const el = document.getElementById('modalStatus');
+  if (saved) { el.textContent = '✓ Key kaydedildi — bir daha girmen gerekmez'; el.className = 'modal-status ok'; }
+  else { el.textContent = 'Key girilmedi'; el.className = 'modal-status warn'; }
+}
+
+// ═══ API KEY ═════════════════════════════════════════════════════════════════
+function saveKey() {
+  const k = document.getElementById('apiKey').value.trim();
+  if (!k) return;
+  localStorage.setItem(KEY_KEY, k);
+  setApiStatus(true);
+  document.getElementById('settingsBtn').classList.add('key-set');
+  toast('API key kaydedildi ✓');
+}
+
+function onKeyInput() { setApiStatus(false); }
+
+function setApiStatus(saved) {
+  const el = document.getElementById('apiStatus');
+  if (saved) { el.textContent = '✓ Key kaydedildi'; el.className = 'api-status ok'; }
+  else { el.textContent = '↑ Kaydet butonuna bas'; el.className = 'api-status warn'; }
+}
+
+// ═══ TABS ════════════════════════════════════════════════════════════════════
+function showTab(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelectorAll('.nav-tab').forEach(t=>{
+    if(t.getAttribute('onclick').includes(name)) t.classList.add('active');
+  });
+  if (name === 'history') renderHistory();
+}
+
+// ═══ FILE HANDLING ════════════════════════════════════════════════════════════
+const dropZone   = document.getElementById('dropZone');
+const fileInput  = document.getElementById('fileInput');
+const cameraZone = document.getElementById('cameraZone');
+const cameraInput= document.getElementById('cameraInput');
+
+fileInput.addEventListener('change',  e => { if (e.target.files[0]) loadFile(e.target.files[0]); });
+cameraInput.addEventListener('change',e => { if (e.target.files[0]) loadFile(e.target.files[0]); });
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave',() => dropZone.classList.remove('drag'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag');
+  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+
+function loadFile(file) {
+  // iPhone HEIC/HEIF fix — browser reads as image/heic but canvas exports jpeg
+  imageMime = (file.type && file.type.startsWith('image/')) ? file.type : 'image/jpeg';
+  document.getElementById('fileName').textContent = file.name;
+  const reader = new FileReader();
+  reader.onerror = () => showError('Dosya okunamadı. Farklı bir fotoğraf deneyin.');
+  reader.onload = ev => {
+    // Compress before storing
+    compressImage(ev.target.result, compressed => {
+      imageBase64 = compressed.split(',')[1];
+      document.getElementById('previewImg').src = ev.target.result;
+      document.getElementById('preview-wrap').style.display = 'block';
+      document.getElementById('uploadOptions').style.display = 'none';
+      document.getElementById('analyzeBtn').disabled = false;
+    });
+  };
+  reader.readAsDataURL(file);
+}
+
+// Compress image to max 1600px wide, quality 0.85
+function compressImage(dataUrl, callback) {
+  const img = new Image();
+  img.onload = () => {
+    try {
+      const MAX = 1600;
+      let w = img.width, h = img.height;
+      if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+      // Minimum size guard
+      if (w < 1 || h < 1) { callback(dataUrl); return; }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      const out = canvas.toDataURL('image/jpeg', 0.88);
+      // If canvas export failed (some iOS security restrictions), fall back to original
+      if (!out || out === 'data:,') { callback(dataUrl); return; }
+      imageMime = 'image/jpeg';
+      callback(out);
+    } catch(e) {
+      // Fallback: use original without compression
+      callback(dataUrl);
+    }
+  };
+  img.onerror = () => callback(dataUrl); // HEIC or unsupported — pass through
+  img.src = dataUrl;
+  imageMime = 'image/jpeg';
+}
+
+function clearFile() {
+  imageBase64 = null;
+  fileInput.value = '';
+  cameraInput.value = '';
+  document.getElementById('preview-wrap').style.display = 'none';
+  document.getElementById('uploadOptions').style.display = 'flex';
+  document.getElementById('analyzeBtn').disabled = true;
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('results').innerHTML = '';
+  document.getElementById('errorBox').style.display = 'none';
+}
+
+// ═══ SYSTEM PROMPT ═══════════════════════════════════════════════════════════
+const SYSTEM_PROMPT = `Sen İstanbul Business Aviation istasyonu operasyon analistisin. STR fotoğrafını oku, aşağıdaki kurallara göre analiz et. YALNIZCA geçerli JSON döndür — hiçbir açıklama, kod bloğu veya ek metin yazma.
+
+KURALLAR:
+1. Tüm STR saatleri Zulu(UTC). Yerel = Zulu+3. Her ikisini de yaz.
+2. PAX X-Y: X=geliş yolcusu, Y=kalkış yolcusu. X=0 ise uçak boş geliyor.
+3. Ekip terminal ETA: boş geliş=25-30dk, yolculu geliş=40-45dk.
+4. Yakıt kuralı — uçaklar kalkış gününde yakıt alır:
+   - FUEL TBA + STD bugünün tarihi DEĞİLSE → risk yok, uyarma.
+   - FUEL TBA + STD BUGÜNSE → risks içine RED ekle: yakıt onayı eksik.
+   - FUEL GAS veya herhangi bir sağlayıcı adı (PO, SOCAR, vb.) → onaylı, risk yok.
+5. Remarks'ta otel adı VAR ama PU saati YOK → actions dizisine ekle: "Ekip terminale geldiğinde kalkış için otelden alınış saatini (PU) sor."
+6. Uçak yatıda kalacak + otel bilgisi YOK → actions dizisine ekle: "Gelişte ekibin otel bilgisini öğren."
+
+Zorunlu JSON yapısı — eksik alan olmasın, null kullan:
+{"str_date":"DD.MM.YYYY","flights":[{"registration":"","aircraft_type":"","route":"","sta_zulu":"","sta_local":"","std_zulu":null,"std_local":null,"std_date":null,"pax_arr":0,"pax_dep":0,"crew_eta_terminal":"","overnight":false,"hotel":null,"hotel_pu_time":null,"fuel_status":"","fuel_risk_level":"NO_RISK","risks":[{"level":"RED","category":"YAKIT","message":""}],"actions":[],"brief":""}],"shift_summary":"","raw_remarks":""}
+
+Her uçuş için ayrı obje. Birden fazla uçuş varsa flights dizisine ekle. SADECE JSON döndür.`;
+
+// ═══ ANALYZE ═════════════════════════════════════════════════════════════════
+async function analyze() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!apiKey) { showError('Lütfen API key girin.'); return; }
+  if (!imageBase64) { showError('Lütfen STR fotoğrafı yükleyin.'); return; }
+
+  document.getElementById('analyzeBtn').disabled = true;
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('errorBox').style.display = 'none';
+
+  // Animate loading steps
+  const steps = ['step1','step2','step3','step4'];
+  steps.forEach(s => { document.getElementById(s).className = 'loading-step'; });
+  setStep(0, steps);
+
+  const today = new Date().toLocaleDateString('tr-TR', {day:'2-digit',month:'2-digit',year:'numeric'});
+
+  try {
+    setStep(1, steps);
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-6',
+        max_tokens: 8192,
+        system: SYSTEM_PROMPT + '\n\nBugünün tarihi: ' + today,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: imageMime, data: imageBase64 } },
+            { type: 'text', text: 'Bu STR\'ı analiz et.' }
+          ]
+        }]
+      })
+    });
+
+    setStep(2, steps);
+    const data = await response.json();
+
+    if (!response.ok) throw new Error(data.error?.message || `API Hatası: ${response.status}`);
+
+    // Robust content extraction — handle all possible response shapes
+    setStep(3, steps);
+    let rawText = '';
+    if (data.content && Array.isArray(data.content)) {
+      for (const block of data.content) {
+        if (block.type === 'text' && block.text) { rawText = block.text; break; }
+      }
+    } else if (typeof data.content === 'string') {
+      rawText = data.content;
+    }
+    if (!rawText) {
+      const snippet = JSON.stringify(data).slice(0, 400);
+      throw new Error(`API yanıtında metin bulunamadı.\n\nYanıt: ${snippet}`);
+    }
+
+    const parsed = robustParse(rawText);
+
+    setStep(4, steps);
+    saveToHistory(parsed);
+    renderResults(parsed);
+
+  } catch(err) {
+    showError(err.message);
+  } finally {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('analyzeBtn').disabled = false;
+  }
+}
+
+let stepTimer = null;
+function setStep(idx, steps) {
+  clearTimeout(stepTimer);
+  steps.forEach((s, i) => {
+    const el = document.getElementById(s);
+    if (i < idx)  el.className = 'loading-step done';
+    else if (i === idx) el.className = 'loading-step active';
+    else el.className = 'loading-step';
+  });
+  if (idx < steps.length - 1) {
+    stepTimer = setTimeout(() => setStep(idx + 1, steps), 800);
+  }
+}
+
+// ═══ ROBUST JSON PARSE ════════════════════════════════════════════════════════
+function robustParse(raw) {
+  let s = raw.trim();
+  // Strip any code fences
+  s = s.replace(/^```[\w]*\s*/i, '').replace(/\s*```$/i, '').trim();
+  // Strip all remaining backticks
+  s = s.replace(/`/g, '').trim();
+  // Extract from first { to last }
+  const start = s.indexOf('{');
+  const end   = s.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error('JSON bulunamadı. Model beklenmedik bir yanıt döndürdü.');
+  s = s.slice(start, end + 1);
+
+  // Attempt direct parse
+  try { return JSON.parse(s); } catch(e1) {}
+
+  // Auto-repair: truncated JSON — try to close open structures
+  try { return JSON.parse(autoRepair(s)); } catch(e2) {
+    throw new Error('JSON parse hatası: ' + e2.message + '\n\nHam yanıt:\n' + raw.slice(0, 300));
+  }
+}
+
+function autoRepair(s) {
+  // Count unclosed brackets
+  let braces = 0, brackets = 0, inStr = false, escape = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (escape) { escape = false; continue; }
+    if (c === '\\' && inStr) { escape = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (c === '{') braces++;
+    if (c === '}') braces--;
+    if (c === '[') brackets++;
+    if (c === ']') brackets--;
+  }
+  // Remove trailing comma before closing
+  s = s.replace(/,\s*$/, '');
+  // Close open structures
+  while (brackets > 0) { s += ']'; brackets--; }
+  while (braces > 0)   { s += '}'; braces--; }
+  return s;
+}
+
+// ═══ RENDER RESULTS ═══════════════════════════════════════════════════════════
+// Per-analysis action state (checked/unchecked), keyed by registration+text
+const actionState = {};
+
+function getActionKey(reg, text) { return reg + '||' + text; }
+
+function renderResults(data) {
+  const container = document.getElementById('results');
+  const riskIcon  = {RED:'🔴',YELLOW:'🟡',GREEN:'🟢',INFO:'🔵'};
+  const riskClass = {RED:'risk-red',YELLOW:'risk-yellow',GREEN:'risk-green',INFO:'risk-blue'};
+
+  const hasRed = (data.flights||[]).some(f => (f.risks||[]).some(r => r.level === 'RED'));
+
+  // Build WhatsApp text
+  const waText = buildWhatsApp(data);
+
+  let html = `
+    <div class="result-header">
+      <h2>ANALİZ SONUÇLARI</h2>
+      <span class="timestamp">${new Date().toLocaleTimeString('tr-TR')} · ${data.str_date||''}</span>
+      <button class="btn-whatsapp" onclick="copyWhatsApp()">⎘ WhatsApp'a Kopyala</button>
+    </div>
+    <div class="brief-box">
+      <h3>VARDIYA ÖZETİ</h3>
+      <p>${data.shift_summary||''}</p>
+    </div>
+    <div class="flights-grid">`;
+
+  (data.flights||[]).forEach((f, fi) => {
+    const redCount = (f.risks||[]).filter(r=>r.level==='RED').length;
+    const cardStyle = redCount ? 'border-color:#3f0d0d;' : '';
+
+    html += `
+      <div class="flight-card" style="${cardStyle}animation-delay:${fi*0.1}s">
+        <div class="flight-card-header">
+          <div class="reg">${f.registration||'—'}</div>
+          <div class="flight-meta">
+            ${f.route       ? `<span class="meta-pill pill-route">${f.route}</span>` : ''}
+            ${f.sta_local   ? `<span class="meta-pill pill-time">ARR ${f.sta_local}</span>` : ''}
+            ${f.std_local   ? `<span class="meta-pill pill-time">DEP ${f.std_local}</span>` : ''}
+            ${f.aircraft_type ? `<span class="meta-pill pill-ac">${f.aircraft_type}</span>` : ''}
+          </div>
+        </div>
+        <div class="flight-card-body">
+          <div class="info-grid">
+            <div class="info-item"><label>PAX Geliş / Kalkış</label><div class="val">${f.pax_arr??'?'} → ${f.pax_dep??'?'}</div></div>
+            <div class="info-item"><label>Ekip Terminal ETA</label><div class="val">${f.crew_eta_terminal||'—'}</div></div>
+            <div class="info-item"><label>Yatı</label><div class="val">${f.overnight?'✓ Yatıda kalacak':'— Geçiş'}</div></div>
+            <div class="info-item"><label>Otel</label><div class="val">${f.hotel||'—'}</div></div>
+            <div class="info-item"><label>PU Saati</label><div class="val">${f.hotel_pu_time||'—'}</div></div>
+            <div class="info-item"><label>Yakıt</label><div class="val">${f.fuel_status||'—'}</div></div>
+          </div>
+
+          ${f.brief ? `<div class="flight-brief">${f.brief}</div>` : ''}
+
+          ${(f.risks||[]).length ? `
+          <div class="risks">
+            ${f.risks.map(r=>`
+              <div class="risk-item ${riskClass[r.level]||'risk-blue'}">
+                <span class="risk-icon">${riskIcon[r.level]||'ℹ'}</span>
+                <div class="risk-text"><strong>${r.category||r.level}</strong>${r.message}</div>
+              </div>`).join('')}
+          </div>` : ''}
+
+          ${(f.actions||[]).length ? `
+          <div class="actions-section">
+            <h4>⚡ Aksiyon Listesi</h4>
+            <div class="action-list" id="actions-${fi}">
+              ${f.actions.map((a,ai)=>{
+                const key  = getActionKey(f.registration||fi, a);
+                const done = actionState[key] ? 'done' : '';
+                const check= actionState[key] ? '✓' : '';
+                return `<div class="action-item ${done}" id="act-${fi}-${ai}" onclick="toggleAction('${fi}','${ai}','${escJs(a)}','${escJs(f.registration||fi)}')">
+                  <div class="action-check">${check}</div>
+                  <span class="action-text">${a}</span>
+                </div>`;
+              }).join('')}
+            </div>
+          </div>` : ''}
+        </div>
+      </div>`;
+  });
+
+  html += `</div>`;
+
+  if (data.raw_remarks) {
+    html += `<div class="raw-section">
+      <button class="raw-toggle" onclick="toggleRaw()">Ham Remarks Metni ▾</button>
+      <div class="raw-box" id="rawBox">${data.raw_remarks}</div>
+    </div>`;
+  }
+
+  container.innerHTML = html;
+  container.style.display = 'block';
+
+  // Store waText for copy button
+  window._currentWaText = waText;
+
+  container.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// ═══ ACTION TOGGLE ════════════════════════════════════════════════════════════
+function toggleAction(fi, ai, text, reg) {
+  const key = getActionKey(reg, text);
+  actionState[key] = !actionState[key];
+  const el = document.getElementById(`act-${fi}-${ai}`);
+  if (!el) return;
+  const done = actionState[key];
+  el.className = 'action-item' + (done ? ' done' : '');
+  el.querySelector('.action-check').textContent = done ? '✓' : '';
+}
+
+// ═══ WHATSAPP ════════════════════════════════════════════════════════════════
+function buildWhatsApp(data) {
+  const now  = new Date();
+  const time = now.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
+  const date = now.toLocaleDateString('tr-TR',{day:'2-digit',month:'2-digit',year:'numeric'});
+
+  let msg = `✈️ STR ANALİZİ — ISL OPS\n📅 ${data.str_date||date} · Analiz: ${time}\n${'─'.repeat(28)}\n`;
+  msg += `📋 ${data.shift_summary||''}\n`;
+
+  (data.flights||[]).forEach(f => {
+    msg += `\n${f.registration||''}`;
+    if (f.route) msg += ` · ${f.route}`;
+    msg += '\n';
+    if (f.sta_local)  msg += `  ARR: ${f.sta_local}\n`;
+    if (f.std_local)  msg += `  DEP: ${f.std_local}\n`;
+    msg += `  PAX: ${f.pax_arr??0} geliş / ${f.pax_dep??0} kalkış\n`;
+    if (f.hotel)      msg += `  Otel: ${f.hotel}${f.hotel_pu_time?' PU '+f.hotel_pu_time:''}\n`;
+
+    const redRisks = (f.risks||[]).filter(r=>r.level==='RED');
+    if (redRisks.length) {
+      msg += `  ⚠️ RİSK: `;
+      msg += redRisks.map(r=>r.message).join(' | ') + '\n';
+    }
+    if ((f.actions||[]).length) {
+      msg += `  ⚡ Aksiyonlar:\n`;
+      f.actions.forEach((a,i) => { msg += `    ${i+1}. ${a}\n`; });
+    }
+  });
+
+  msg += `${'─'.repeat(28)}\nSTR OPS · Istanbul Atatürk Station 🛫`;
+  return msg;
+}
+
+function copyWhatsApp() {
+  const text = window._currentWaText;
+  if (!text) return;
+  const copy = () => toast('WhatsApp mesajı kopyalandı ✓');
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(copy).catch(fallback);
+  } else fallback();
+  function fallback() {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); copy();
+  }
+}
+
+// ═══ HISTORY ═════════════════════════════════════════════════════════════════
+function saveToHistory(parsed) {
+  try {
+    const hist = JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');
+    hist.unshift({
+      id: Date.now(),
+      savedAt: new Date().toLocaleString('tr-TR'),
+      data: parsed
+    });
+    if (hist.length > 50) hist.splice(50);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(hist));
+  } catch(e) {}
+}
+
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]'); }
+  catch(e) { return []; }
+}
+
+function renderHistory() {
+  const hist = loadHistory();
+  const container = document.getElementById('historyContainer');
+  if (!hist.length) {
+    container.innerHTML = '<div class="history-empty">— Henüz kaydedilmiş analiz yok —<br>STR yükleyip analiz ettiğinde burada görünür.</div>';
+    return;
+  }
+
+  let html = '<div class="history-list">';
+  hist.forEach(entry => {
+    const d = entry.data;
+    const allFlights = d.flights||[];
+    const hasRed = allFlights.some(f=>(f.risks||[]).some(r=>r.level==='RED'));
+    const totalActions = allFlights.reduce((s,f)=>s+(f.actions||[]).length,0);
+    const regs = allFlights.map(f=>f.registration||'').join(', ');
+    const firstBrief = allFlights[0]?.brief||d.shift_summary||'';
+
+    html += `
+      <div class="history-card ${hasRed?'has-red':''}" onclick="loadFromHistory(${entry.id})">
+        <div class="history-card-top">
+          <div class="history-reg">${regs||'—'}</div>
+          <div class="history-meta">${d.str_date||''} · ${allFlights.length} uçuş</div>
+          <div class="history-time">${entry.savedAt}</div>
+          <button class="delete-btn" onclick="deleteHistory(event,${entry.id})">Sil</button>
+        </div>
+        <div class="history-brief">${firstBrief.slice(0,120)}${firstBrief.length>120?'…':''}</div>
+        <div class="history-badges">
+          ${hasRed ? '<span class="h-badge h-badge-red">⚠ Risk</span>' : '<span class="h-badge h-badge-green">✓ Risksiz</span>'}
+          ${totalActions ? `<span class="h-badge h-badge-open">⚡ ${totalActions} aksiyon</span>` : ''}
+          ${allFlights.some(f=>f.overnight) ? '<span class="h-badge h-badge-open">🌙 Yatı</span>' : ''}
+        </div>
+      </div>`;
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function loadFromHistory(id) {
+  const hist = loadHistory();
+  const entry = hist.find(h=>h.id===id);
+  if (!entry) return;
+  showTab('analyze');
+  document.querySelector('.nav-tab').classList.add('active');
+  renderResults(entry.data);
+  toast('Geçmiş analiz yüklendi');
+}
+
+function deleteHistory(e, id) {
+  e.stopPropagation();
+  if (!confirm('Bu analizi silmek istiyor musun?')) return;
+  const hist = loadHistory().filter(h=>h.id!==id);
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(hist));
+  renderHistory();
+}
+
+function clearHistory() {
+  if (!confirm('Tüm analiz geçmişi silinecek. Emin misin?')) return;
+  localStorage.removeItem(HISTORY_KEY);
+  renderHistory();
+  toast('Geçmiş temizlendi');
+}
+
+// ═══ UTILS ═══════════════════════════════════════════════════════════════════
+function showError(msg) {
+  const box = document.getElementById('errorBox');
+  box.innerHTML = '⚠ HATA: ' + msg.replace(/\n/g,'<br>');
+  box.style.display = 'block';
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('analyzeBtn').disabled = false;
+}
+
+function toggleRaw() {
+  const b = document.getElementById('rawBox');
+  b.style.display = b.style.display==='block' ? 'none' : 'block';
+}
+
+function escJs(s) { return String(s).replace(/'/g,"\\'").replace(/\n/g,' '); }
+
+function toast(msg) {
+  document.querySelectorAll('.toast').forEach(t=>t.remove());
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 2400);
+}
+
+</script>
+</body>
+</html>
