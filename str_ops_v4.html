@@ -169,6 +169,7 @@
   .history-card.has-red{border-left:3px solid var(--red);}
   .history-card-top{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
   .history-reg{font-family:var(--display);font-size:20px;letter-spacing:2px;color:var(--accent);}
+  .reg-sub{font-family:var(--mono);font-size:10px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-top:2px;}
   .history-meta{font-family:var(--mono);font-size:11px;color:var(--muted);flex:1;}
   .history-time{font-family:var(--mono);font-size:10px;color:var(--muted);}
   .history-brief{font-size:13px;color:var(--text);line-height:1.5;opacity:.8;}
@@ -196,7 +197,7 @@
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <button class="btn-settings" id="settingsBtn" onclick="openSettings()" title="API Ayarları">⚙</button>
-      <div class="station-badge">ISL · UTC+3</div>
+      <div class="station-badge">TÜM SAATLER UTC</div>
     </div>
   </header>
 
@@ -276,7 +277,7 @@
     <div class="error-box" id="errorBox"></div>
     <div id="results"></div>
 
-    <footer>STR OPS · Istanbul Atatürk Station · Tüm saatler yerel (UTC+3) olarak gösterilir</footer>
+    <footer>STR OPS · Istanbul Atatürk Station · Tüm saatler UTC</footer>
   </div>
 
   <!-- ═══ HISTORY PAGE ═══ -->
@@ -457,19 +458,23 @@ function clearFile() {
 // ═══ SYSTEM PROMPT ═══════════════════════════════════════════════════════════
 const SYSTEM_PROMPT = `Sen İstanbul Business Aviation istasyonu operasyon analistisin. STR fotoğrafını oku, aşağıdaki kurallara göre analiz et. YALNIZCA geçerli JSON döndür — hiçbir açıklama, kod bloğu veya ek metin yazma.
 
-KURALLAR:
-1. Tüm STR saatleri Zulu(UTC). Yerel = Zulu+3. Her ikisini de yaz.
-2. PAX X-Y: X=geliş yolcusu, Y=kalkış yolcusu. X=0 ise uçak boş geliyor.
-3. Ekip terminal ETA: boş geliş=25-30dk, yolculu geliş=40-45dk.
-4. Yakıt kuralı — uçaklar kalkış gününde yakıt alır:
-   - FUEL TBA + STD bugünün tarihi DEĞİLSE → risk yok, uyarma.
-   - FUEL TBA + STD BUGÜNSE → risks içine RED ekle: yakıt onayı eksik.
-   - FUEL GAS veya herhangi bir sağlayıcı adı (PO, SOCAR, vb.) → onaylı, risk yok.
-5. Remarks'ta otel adı VAR ama PU saati YOK → actions dizisine ekle: "Ekip terminale geldiğinde kalkış için otelden alınış saatini (PU) sor."
-6. Uçak yatıda kalacak + otel bilgisi YOK → actions dizisine ekle: "Gelişte ekibin otel bilgisini öğren."
+KURALLAR (ZORUNLU):
+1) Tarih kontrolü: DATE satırındaki ilk tarih geliş, alt satırdaki tarih kalkış. ATA saat varsa uçak inmiş ve parkta kabul edilir; tekrar "ferry arrival" gibi geleceğe dönük yorum yapma.
+2) Hangar yorumları: Remarks içinde "Genel Havacılık Hangar", "BE Aero Hangar", "TK Hangar" vb. varsa operasyon hangardır. Geliş uçuşuysa "hangara giriş", kalkış uçuşuysa "hangardan çıkış" olarak brief ve actions'a işle.
+3) Saat formatı: Sadece UTC/Z saatlerini kullan. Local saat üretme. İstisna yalnızca crew pick-up (PU) saatinin local yazılabilmesidir.
+4) Başlık önceliği: Kuyruk bilgisi (registration) ana kimliktir, açıklamalarda sadece kuyruk kullan. Kuyruk yoksa callsign kullan.
+5) Şirket adı NOT/remarks içine yazılmaz; company alanına yaz.
+6) Ekip terminal süresi tahmini yapma ve bu alanı doldurma.
+7) Yakıt mantığı:
+   - Varsayılan: uçak yakıtı kalkış gününde alır.
+   - Remarks içinde "Fuel on arrival / Fuel ARR / ARR fuel / Arrival fuel / Fuel OK on ARR / Fuel OPET OK on ARR / Fuel GAS OK on ARR / Fuel on ARR confirmed" varsa arrival_fuel=true.
+   - Remarks içinde "No fuel required / Fuel not required / Yakıt istemez / Fuel istemez" varsa fuel_not_required=true.
+   - Aynı gün dönüş + (fuel_status boş veya Fuel TBA) => risks içine RED ekle ve actions'a "Yakıt release firmadan talep edilmelidir." ekle.
+8) Vardiya özeti: tarih + toplam operasyon + sadece kuyruk listesi (kuyruk yoksa callsign).
+9) Yakıt takip bölümü: kalkış günü bugün olan, arrival_fuel olmayan ve fuel_not_required olmayan uçakları fuel_follow_up listesine ekle.
 
 Zorunlu JSON yapısı — eksik alan olmasın, null kullan:
-{"str_date":"DD.MM.YYYY","flights":[{"registration":"","aircraft_type":"","route":"","sta_zulu":"","sta_local":"","std_zulu":null,"std_local":null,"std_date":null,"pax_arr":0,"pax_dep":0,"crew_eta_terminal":"","overnight":false,"hotel":null,"hotel_pu_time":null,"fuel_status":"","fuel_risk_level":"NO_RISK","risks":[{"level":"RED","category":"YAKIT","message":""}],"actions":[],"brief":""}],"shift_summary":"","raw_remarks":""}
+{"str_date":"DD.MM.YYYY","shift_summary":"","fuel_follow_up":[],"raw_remarks":"","flights":[{"registration":"","company":"","arrival_callsign":null,"departure_callsign":null,"aircraft_type":"","route":"","sta_zulu":null,"std_zulu":null,"std_date":null,"pax_arr":0,"pax_dep":0,"overnight":false,"hotel":null,"hotel_pu_time":null,"fuel_status":"","arrival_fuel":false,"fuel_not_required":false,"risks":[{"level":"RED","category":"YAKIT","message":""}],"actions":[],"brief":""}]}
 
 Her uçuş için ayrı obje. Birden fazla uçuş varsa flights dizisine ekle. SADECE JSON döndür.`;
 
@@ -613,6 +618,17 @@ const actionState = {};
 
 function getActionKey(reg, text) { return reg + '||' + text; }
 
+function isSameDate(a,b){ return a && b && a.trim()===b.trim(); }
+function needsFuelFollowUp(f,strDate){
+  const depToday = isSameDate(f.std_date, strDate);
+  return depToday && !f.arrival_fuel && !f.fuel_not_required;
+}
+function buildFuelFollowUp(data){
+  const list = (data.flights||[]).filter(f=>needsFuelFollowUp(f,data.str_date)).map(f=>(f.registration||f.departure_callsign||f.arrival_callsign||'—').toUpperCase());
+  if (Array.isArray(data.fuel_follow_up) && data.fuel_follow_up.length) return data.fuel_follow_up;
+  return list;
+}
+
 function renderResults(data) {
   const container = document.getElementById('results');
   const riskIcon  = {RED:'🔴',YELLOW:'🟡',GREEN:'🟢',INFO:'🔵'};
@@ -633,6 +649,11 @@ function renderResults(data) {
       <h3>VARDIYA ÖZETİ</h3>
       <p>${data.shift_summary||''}</p>
     </div>
+    <div class="brief-box">
+      <h3>YAKIT ALACAK UÇAKLAR</h3>
+      <p>${buildFuelFollowUp(data).join(', ') || '—'}</p>
+      <p>Yakıt saatlerini WhatsApp üzerinden teyit et ve takip et.</p>
+    </div>
     <div class="flights-grid">`;
 
   (data.flights||[]).forEach((f, fi) => {
@@ -642,18 +663,17 @@ function renderResults(data) {
     html += `
       <div class="flight-card" style="${cardStyle}animation-delay:${fi*0.1}s">
         <div class="flight-card-header">
-          <div class="reg">${f.registration||'—'}</div>
+          <div><div class="reg">${(f.registration||f.departure_callsign||f.arrival_callsign||'—').toUpperCase()}</div><div class="reg-sub">${f.company||''}</div><div class="reg-sub">${f.arrival_callsign||'—'} - ${f.departure_callsign||'—'}</div></div>
           <div class="flight-meta">
             ${f.route       ? `<span class="meta-pill pill-route">${f.route}</span>` : ''}
-            ${f.sta_local   ? `<span class="meta-pill pill-time">ARR ${f.sta_local}</span>` : ''}
-            ${f.std_local   ? `<span class="meta-pill pill-time">DEP ${f.std_local}</span>` : ''}
+            ${f.sta_zulu    ? `<span class="meta-pill pill-time">ARR ${f.sta_zulu}Z</span>` : ''}
+            ${f.std_zulu    ? `<span class="meta-pill pill-time">DEP ${f.std_zulu}Z</span>` : ''}
             ${f.aircraft_type ? `<span class="meta-pill pill-ac">${f.aircraft_type}</span>` : ''}
           </div>
         </div>
         <div class="flight-card-body">
           <div class="info-grid">
             <div class="info-item"><label>PAX Geliş / Kalkış</label><div class="val">${f.pax_arr??'?'} → ${f.pax_dep??'?'}</div></div>
-            <div class="info-item"><label>Ekip Terminal ETA</label><div class="val">${f.crew_eta_terminal||'—'}</div></div>
             <div class="info-item"><label>Yatı</label><div class="val">${f.overnight?'✓ Yatıda kalacak':'— Geçiş'}</div></div>
             <div class="info-item"><label>Otel</label><div class="val">${f.hotel||'—'}</div></div>
             <div class="info-item"><label>PU Saati</label><div class="val">${f.hotel_pu_time||'—'}</div></div>
@@ -729,11 +749,11 @@ function buildWhatsApp(data) {
   msg += `📋 ${data.shift_summary||''}\n`;
 
   (data.flights||[]).forEach(f => {
-    msg += `\n${f.registration||''}`;
+    msg += `\n${(f.registration||f.departure_callsign||f.arrival_callsign||'').toUpperCase()}`;
     if (f.route) msg += ` · ${f.route}`;
     msg += '\n';
-    if (f.sta_local)  msg += `  ARR: ${f.sta_local}\n`;
-    if (f.std_local)  msg += `  DEP: ${f.std_local}\n`;
+    if (f.sta_zulu)   msg += `  ARR: ${f.sta_zulu}Z\n`;
+    if (f.std_zulu)   msg += `  DEP: ${f.std_zulu}Z\n`;
     msg += `  PAX: ${f.pax_arr??0} geliş / ${f.pax_dep??0} kalkış\n`;
     if (f.hotel)      msg += `  Otel: ${f.hotel}${f.hotel_pu_time?' PU '+f.hotel_pu_time:''}\n`;
 
@@ -799,7 +819,7 @@ function renderHistory() {
     const allFlights = d.flights||[];
     const hasRed = allFlights.some(f=>(f.risks||[]).some(r=>r.level==='RED'));
     const totalActions = allFlights.reduce((s,f)=>s+(f.actions||[]).length,0);
-    const regs = allFlights.map(f=>f.registration||'').join(', ');
+    const regs = allFlights.map(f=>(f.registration||f.departure_callsign||f.arrival_callsign||'')).join(', ');
     const firstBrief = allFlights[0]?.brief||d.shift_summary||'';
 
     html += `
